@@ -4,9 +4,10 @@ from PIL import Image, ImageFilter
 from streamlit_drawable_canvas import st_canvas
 import io
 import os
+import numpy as np
 
 st.set_page_config(page_title="AI Background Remover + Manual Fix", layout="wide")
-st.title("Background Remover")
+st.title("AI Background Remover + Manual Edit Tool")
 
 # -----------------------------
 # Upload Image
@@ -14,7 +15,6 @@ st.title("Background Remover")
 uploaded = st.file_uploader("Upload image", type=["jpg","jpeg","png"])
 
 if uploaded:
-    # Original image
     original = Image.open(uploaded).convert("RGBA")
 
     st.subheader("Original Image")
@@ -23,16 +23,16 @@ if uploaded:
     # -----------------------------
     # Remove Background
     # -----------------------------
-    st.subheader("Auto Remove Background")
     removed = remove(original)
 
     # Soft alpha edges
     r, g, b, a = removed.split()
     a = a.filter(ImageFilter.GaussianBlur(2))  # smooth edges
-    a = a.point(lambda x: int(x * 0.95))       # slight feather
+    a = a.point(lambda x: int(x * 0.95))       # feather alpha
     removed_cleaned = Image.merge("RGBA", (r, g, b, a))
 
-    st.image(removed_cleaned, caption="Background Removed", use_column_width=True)
+    st.subheader("Background Removed")
+    st.image(removed_cleaned, use_column_width=True)
 
     # Save temporary file for canvas background
     tmp_file = "removed_temp.png"
@@ -46,10 +46,10 @@ if uploaded:
     brush_size = st.slider("Brush Size", 5, 80, 35)
 
     canvas_result = st_canvas(
-        fill_color="rgba(255,0,0,0)",
+        fill_color="rgba(255,0,0,0)",  # transparent
         stroke_width=brush_size,
         stroke_color="white",
-        background_image=Image.open(tmp_file),
+        background_image=tmp_file,  # <-- pakai file path
         height=removed_cleaned.height,
         width=removed_cleaned.width,
         drawing_mode="freedraw",
@@ -60,11 +60,8 @@ if uploaded:
     # Process Manual Edits
     # -----------------------------
     if canvas_result.image_data is not None:
-        mask = canvas_result.image_data[:, :, 3]  # alpha channel from drawing
-        mask = mask > 0  # convert to boolean
-
-        edited = removed_cleaned.copy()
-        edited_np = np.array(edited)
+        mask = canvas_result.image_data[:, :, 3] > 0  # alpha drawn
+        edited_np = np.array(removed_cleaned).copy()
 
         if mode == "Erase":
             edited_np[mask] = [0, 0, 0, 0]  # make transparent
@@ -72,7 +69,7 @@ if uploaded:
             original_np = np.array(original)
             edited_np[mask] = original_np[mask]
 
-        edited_img = Image.fromarray(edited_np, mode="RGBA")
+        edited_img = Image.fromarray(edited_np, "RGBA")
 
         st.subheader("Edited Result")
         st.image(edited_img, use_column_width=True)
