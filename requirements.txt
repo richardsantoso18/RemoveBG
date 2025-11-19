@@ -2,4 +2,3 @@ streamlit
 rembg
 Pillow
 onnxruntime
-streamlit-drawable-canvas
