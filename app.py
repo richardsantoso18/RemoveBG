@@ -13,28 +13,38 @@ if uploaded:
     # Load image asli
     img = Image.open(uploaded).convert("RGBA")
     st.subheader("Original Image")
-    st.image(img, use_column_width=False)  # tampil asli tapi tidak stretch full
+    st.image(img, use_column_width=False)
 
     # Remove background
     removed = remove(img)
 
-    # Soft edges (hilangkan halo putih)
+    # Soft edges
     r, g, b, a = removed.split()
     a = a.filter(ImageFilter.GaussianBlur(2))
     a = a.point(lambda x: int(x * 0.95))
     cleaned = Image.merge("RGBA", (r, g, b, a))
 
     # -------------------------
-    # Resize untuk preview
+    # Resize untuk preview 500 px
     # -------------------------
-    max_preview_width = 800  # maksimal lebar preview
-    ratio = min(max_preview_width / cleaned.width, 1)  # jangan upscale
-    preview = cleaned.resize((int(cleaned.width*ratio), int(cleaned.height*ratio)))
+    preview_width = 500
+    ratio = preview_width / cleaned.width
+    preview_height = int(cleaned.height * ratio)
+    preview = cleaned.resize((preview_width, preview_height))
 
+    # Tampilkan tengah
     st.subheader("Background Removed (Preview)")
-    st.image(preview, use_column_width=False)
+    st.markdown(
+        f"<div style='text-align:center'><img src='data:image/png;base64,{io.BytesIO(preview.tobytes()).getvalue().hex()}' width='{preview_width}' /></div>",
+        unsafe_allow_html=True
+    )
 
-    # Download PNG (full size)
+    # Alternatif lebih mudah: gunakan col untuk tengah
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        st.image(preview, use_column_width=False)
+
+    # Download full size
     buf = io.BytesIO()
     cleaned.save(buf, format="PNG")
     st.download_button(
