@@ -3,45 +3,40 @@ from rembg import remove
 from PIL import Image, ImageFilter
 import io
 
-st.title("Remove Background.")
+st.title("AI Background Remover")
 
 uploaded = st.file_uploader("Upload image", type=["jpg","jpeg","png"])
 
 if uploaded:
 
-    # Load original
     img = Image.open(uploaded).convert("RGBA")
 
     # Remove background
     removed = remove(img)
 
-    # --- FIX 1: Soften alpha edge biar gak ada putih-putih ---
+    # ----- FIX: Soft feather edges, no white halo, no lines -----
     r, g, b, a = removed.split()
 
-    # Blur tipis area alpha → hilangkan halo putih
-    a = a.filter(ImageFilter.GaussianBlur(1.2))
+    # Blur alpha sedikit untuk rambut agar halus
+    a = a.filter(ImageFilter.GaussianBlur(2.2))
 
-    # Buat threshold lembut (feather)
-    a = a.point(lambda x: 255 if x > 25 else 0)
+    # TIPIS turunkan alpha → menghilangkan "garis rambut"
+    a = a.point(lambda x: int(x * 0.95))
 
     cleaned = Image.merge("RGBA", (r, g, b, a))
+    # ------------------------------------------------------------
 
-    # --- FIX 2: Pastikan download = PNG bukan raw bytes ---
+    # Show images
+    st.image(img, caption="Original", use_container_width=True)
+    st.image(cleaned, caption="Clean Result (No White, No Lines)",
+             use_container_width=True)
+
+    # Download PNG
     buf = io.BytesIO()
     cleaned.save(buf, format="PNG")
-    png_bytes = buf.getvalue()
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.image(img, caption="Original", use_container_width=True)
-
-    with col2:
-        st.image(cleaned, caption="Cleaned (No White Halo)", use_container_width=True)
-
     st.download_button(
         "Download PNG",
-        data=png_bytes,
+        data=buf.getvalue(),
         file_name="removed_bg.png",
         mime="image/png"
     )
