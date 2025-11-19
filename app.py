@@ -1,36 +1,35 @@
 import streamlit as st
-from rembg import remove, new_session
-from PIL import Image, ImageFilter
-import io
+from rembg import remove
+from PIL import Image
 
-def clean_edges(image: Image.Image, blur_amount=1):
-    image = image.convert("RGBA")
-    r, g, b, a = image.split()
+st.title("Remove Background")
 
-    # Kurangi halo dengan aman
-    a = a.point(lambda x: max(0, x - 5))
+uploaded_file = st.file_uploader("Upload image", type=["jpg","png","jpeg"])
 
-    # Blur ringan agar pinggiran halus
-    a = a.filter(ImageFilter.GaussianBlur(blur_amount))
+if uploaded_file:
+    col1, col2 = st.columns(2)
 
-    return Image.merge("RGBA", (r, g, b, a))
+    with col1:
+        st.image(uploaded_file, caption="Original", use_container_width=True)
 
-st.title("Background Remover .")
+    # Load upload
+    input_img = Image.open(uploaded_file).convert("RGBA")
 
-uploaded = st.file_uploader("Upload image", type=["jpg", "jpeg", "png"])
+    # Remove background
+    no_bg = remove(input_img)
 
-session = new_session("u2net_human_seg")
+    # FIX: Hilangkan area gelap/hitam dari alpha dengan cara clamp alpha
+    r, g, b, a = no_bg.split()
+    a = a.point(lambda i: 255 if i > 15 else 0)  # threshold biar ga jadi hitam item
+    no_bg_fixed = Image.merge("RGBA", (r, g, b, a))
 
-if uploaded:
-    image = Image.open(uploaded).convert("RGB")
-    st.image(image, caption="Original", use_column_width=True)
+    with col2:
+        st.image(no_bg_fixed, caption="Background Removed (FIXED)", use_container_width=True)
 
-    with st.spinner("Removing background..."):
-        removed = remove(image, session=session)
-        output = clean_edges(removed)
-
-    st.image(output, caption="Cleaned Result", use_column_width=True)
-
-    buf = io.BytesIO()
-    output.save(buf, format="PNG")
-    st.download_button("Download PNG", buf.getvalue(), "result.png")
+    # Download button
+    st.download_button(
+        label="Download PNG",
+        data=no_bg_fixed.tobytes(),
+        file_name="removed_bg.png",
+        mime="image/png"
+    )
