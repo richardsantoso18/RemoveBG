@@ -1,35 +1,47 @@
 import streamlit as st
 from rembg import remove
-from PIL import Image
+from PIL import Image, ImageFilter
+import io
 
-st.title("Remove Background")
+st.title("Remove Background.")
 
-uploaded_file = st.file_uploader("Upload image", type=["jpg","png","jpeg"])
+uploaded = st.file_uploader("Upload image", type=["jpg","jpeg","png"])
 
-if uploaded_file:
+if uploaded:
+
+    # Load original
+    img = Image.open(uploaded).convert("RGBA")
+
+    # Remove background
+    removed = remove(img)
+
+    # --- FIX 1: Soften alpha edge biar gak ada putih-putih ---
+    r, g, b, a = removed.split()
+
+    # Blur tipis area alpha → hilangkan halo putih
+    a = a.filter(ImageFilter.GaussianBlur(1.2))
+
+    # Buat threshold lembut (feather)
+    a = a.point(lambda x: 255 if x > 25 else 0)
+
+    cleaned = Image.merge("RGBA", (r, g, b, a))
+
+    # --- FIX 2: Pastikan download = PNG bukan raw bytes ---
+    buf = io.BytesIO()
+    cleaned.save(buf, format="PNG")
+    png_bytes = buf.getvalue()
+
     col1, col2 = st.columns(2)
 
     with col1:
-        st.image(uploaded_file, caption="Original", use_container_width=True)
-
-    # Load upload
-    input_img = Image.open(uploaded_file).convert("RGBA")
-
-    # Remove background
-    no_bg = remove(input_img)
-
-    # FIX: Hilangkan area gelap/hitam dari alpha dengan cara clamp alpha
-    r, g, b, a = no_bg.split()
-    a = a.point(lambda i: 255 if i > 15 else 0)  # threshold biar ga jadi hitam item
-    no_bg_fixed = Image.merge("RGBA", (r, g, b, a))
+        st.image(img, caption="Original", use_container_width=True)
 
     with col2:
-        st.image(no_bg_fixed, caption="Background Removed (FIXED)", use_container_width=True)
+        st.image(cleaned, caption="Cleaned (No White Halo)", use_container_width=True)
 
-    # Download button
     st.download_button(
-        label="Download PNG",
-        data=no_bg_fixed.tobytes(),
+        "Download PNG",
+        data=png_bytes,
         file_name="removed_bg.png",
         mime="image/png"
     )
