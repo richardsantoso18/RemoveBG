@@ -3,23 +3,19 @@ from rembg import remove, new_session
 from PIL import Image, ImageFilter
 import io
 
-def clean_edges(image: Image.Image):
-    # pastikan RGBA
+def clean_edges(image: Image.Image, blur_amount=1):
     image = image.convert("RGBA")
-
-    # pisah channel
     r, g, b, a = image.split()
 
-    # kurangi halo putih
-    a = a.point(lambda x: max(0, x - 35))
+    # Kurangi halo dengan aman
+    a = a.point(lambda x: max(0, x - 5))
 
-    # blur halus di pinggiran
-    a = a.filter(ImageFilter.GaussianBlur(1.8))
+    # Blur ringan agar pinggiran halus
+    a = a.filter(ImageFilter.GaussianBlur(blur_amount))
 
-    # gabungkan lagi
     return Image.merge("RGBA", (r, g, b, a))
 
-st.title("Background Remover")
+st.title("Background Remover .")
 
 uploaded = st.file_uploader("Upload image", type=["jpg", "jpeg", "png"])
 
