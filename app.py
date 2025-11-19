@@ -4,18 +4,38 @@ from PIL import Image, ImageFilter
 import io
 
 st.set_page_config(page_title="AI Background Remover", layout="wide")
-st.title("AI Background Remover")
+st.title("AI Background Remover – Clean & Soft Edges with Border")
 
-# Upload image
+# -----------------------------
+# Upload Image
+# -----------------------------
 uploaded = st.file_uploader("Upload image", type=["jpg","jpeg","png"])
 
 if uploaded:
-    # Load image asli
     img = Image.open(uploaded).convert("RGBA")
-    st.subheader("Original Image")
-    st.image(img, use_column_width=False)
 
-    # Remove background
+    # -----------------------------
+    # Resize original untuk preview max 500px
+    # -----------------------------
+    preview_width = 500
+    ratio = min(preview_width / img.width, 1)
+    preview_height = int(img.height * ratio)
+    original_preview = img.resize((int(img.width*ratio), preview_height))
+
+    st.subheader("Original Image (Preview)")
+    # Border + tengah
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        st.markdown(
+            f"<div style='border:3px solid black; display:inline-block;'><img src='data:image/png;base64,{io.BytesIO(original_preview.tobytes()).getvalue().hex()}' width='{preview_width}'></div>",
+            unsafe_allow_html=True
+        )
+        # Alternatif lebih mudah: pakai st.image + style col
+        st.image(original_preview, use_column_width=False)
+
+    # -----------------------------
+    # Remove Background
+    # -----------------------------
     removed = remove(img)
 
     # Soft edges
@@ -24,27 +44,23 @@ if uploaded:
     a = a.point(lambda x: int(x * 0.95))
     cleaned = Image.merge("RGBA", (r, g, b, a))
 
-    # -------------------------
-    # Resize untuk preview 500 px
-    # -------------------------
-    preview_width = 500
-    ratio = preview_width / cleaned.width
-    preview_height = int(cleaned.height * ratio)
-    preview = cleaned.resize((preview_width, preview_height))
+    # Resize cleaned untuk preview max 500px
+    ratio_clean = min(preview_width / cleaned.width, 1)
+    preview_height_clean = int(cleaned.height * ratio_clean)
+    cleaned_preview = cleaned.resize((preview_width, preview_height_clean))
 
-    # Tampilkan tengah
     st.subheader("Background Removed (Preview)")
-    st.markdown(
-        f"<div style='text-align:center'><img src='data:image/png;base64,{io.BytesIO(preview.tobytes()).getvalue().hex()}' width='{preview_width}' /></div>",
-        unsafe_allow_html=True
-    )
-
-    # Alternatif lebih mudah: gunakan col untuk tengah
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
-        st.image(preview, use_column_width=False)
+        st.markdown(
+            f"<div style='border:3px solid black; display:inline-block;'><img src='data:image/png;base64,{io.BytesIO(cleaned_preview.tobytes()).getvalue().hex()}' width='{preview_width}'></div>",
+            unsafe_allow_html=True
+        )
+        st.image(cleaned_preview, use_column_width=False)
 
+    # -----------------------------
     # Download full size
+    # -----------------------------
     buf = io.BytesIO()
     cleaned.save(buf, format="PNG")
     st.download_button(
